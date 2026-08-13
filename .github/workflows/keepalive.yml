@@ -1,0 +1,53 @@
+name: Keepalive
+
+# GitHub désactive les workflows planifiés d'un dépôt PUBLIC après 60 jours sans
+# activité. Ce dépôt est un fork qu'on ne développe pas : sans commit, le cron de
+# 00-daily-analysis.yml s'arrête tout seul, en silence, sans mail d'échec.
+#
+# Ce workflow écrit un horodatage une fois par mois. Le commit remet le compteur
+# à zéro, donc les 60 jours ne sont jamais atteints.
+#
+# Il reste public exprès : en privé, les crons ne s'éteignent jamais, mais les
+# minutes deviennent facturables — un job d'analyse de 30 min tous les jours
+# ouvrés consommerait ~660 min/mois sur les 2000 du plan gratuit.
+on:
+  schedule:
+    - cron: '0 3 1 * *'      # le 1er de chaque mois, 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Horodatage
+        run: |
+          mkdir -p .github
+          {
+            echo "Dernière activité forcée, pour empêcher la désactivation"
+            echo "automatique des workflows planifiés (60 jours d'inactivité"
+            echo "sur un dépôt public). Fichier sans autre usage."
+            echo ""
+            echo "$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } > .github/keepalive-stamp.txt
+
+      - name: Commit
+        run: |
+          if [ -z "$(git status --porcelain .github/keepalive-stamp.txt)" ]; then
+            echo "Aucun changement — le fichier a déjà l'horodatage du jour."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive-stamp.txt
+          git commit -m "chore: keepalive $(date -u +%Y-%m-%d)"
+          git push
