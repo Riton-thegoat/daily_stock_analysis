@@ -1,0 +1,5 @@
+Dernière activité forcée, pour empêcher la désactivation
+automatique des workflows planifiés (60 jours d'inactivité
+sur un dépôt public). Fichier sans autre usage.
+
+2026-08-13 10:48:29 UTC
